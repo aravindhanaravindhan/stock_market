@@ -6,96 +6,94 @@ const bodyParser = require('body-parser');
 const app = express()
 const port = 3000
 var mysql = require('mysql2');
-
+const fs = require('fs');
 var connection = mysql.createConnection({
-  host     : 'localhost',
-  user     : 'root',
-  password : 'password',
+  host: 'localhost',
+  user: 'root',
+  password: 'password',
   database: 'stackmarket',
 });
 
-connection.connect(function(err) {
-    if (err) throw err;
-    console.log("Connected!");
-   });
+connection.connect(function (err) {
+  if (err) throw err;
+  console.log("Connected!");
+});
 
 
-   const host = 'broker.emqx.io'
-   const port1 = '1883'
-   const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
-   
-   
-   const connectUrl = `mqtt://${host}:${port1}`
-   const client = mqtt.connect(connectUrl, {
-       clientId,
-       clean: true,
-       connectTimeout: 4000,
-       username: 'emqx',
-       password: 'public',
-       reconnectPeriod: 1000,
-   })
-   
-   const topic = 'access/topic'
-   const face_topic = 'face/topic'
-  //  const topic2 = 'mqtt/face/1872722/Rec'
-   
-   
-   client.on('connect', () => {
-       console.log('Connected Mqtt')
-       client.subscribe([face_topic], () => {
-           console.log(`Subscribe to topic '${topic}'`)
-       })
-      
-   })
-   client.on('message', (face_topic, payload) => {
-       console.log('Received Message:', face_topic, payload.toString())
-   
-   })
-   
-   function registeFace(responseData) {
-
-    const customPromise = new Promise((resolve, reject) => {
-        client.publish("mqtt/face/18722", JSON.stringify(responseData), { qos: 0, retain: false }, (error) => {
-
-            client.on('message', async (data, payload) => {
-                // console.log('Received Message:');
-                // console.log('Received Message:', data, payload.toString());
-
-                if (data == 'mqtt/face/1872722/Ack') {
-                    console.log("Ack")
-                    var att = JSON.parse(payload.toString())
-                     console.log(att.info);
-                    resolve(att.info);
-
-                }
-            })
-        });
+const host = 'broker.hivemq.com'
+const port1 = '1883'
+const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
 
 
+const connectUrl = `mqtt://${host}:${port1}`
+const client = mqtt.connect(connectUrl, {
+  clientId,
+  clean: true,
+  connectTimeout: 4000,
+  username: 'emqx',
+  password: 'public',
+  reconnectPeriod: 1000,
+})
+
+const topic = 'access/topic'
+const purchasedettails = 'purchase/details'
+//  const topic2 = 'mqtt/face/1872722/Rec'
+
+
+client.on('connect', () => {
+  console.log('Connected Mqtt')
+  client.subscribe([purchasedettails], () => {
+    console.log(`Subscribe to topic '${topic}'`)
+  })
+
+})
+
+
+
+function registeFace(responseData) {
+
+  const customPromise = new Promise((resolve, reject) => {
+    client.publish("mqtt/face/18722", JSON.stringify(responseData), { qos: 0, retain: false }, (error) => {
+
+      client.on('message', async (data, payload) => {
+        // console.log('Received Message:');
+        // console.log('Received Message:', data, payload.toString());
+
+        if (data == 'mqtt/face/1872722/Ack') {
+          console.log("Ack")
+          var att = JSON.parse(payload.toString())
+          console.log(att.info);
+          resolve(att.info);
+
+        }
+      })
     });
-    return customPromise;
+
+
+  });
+  return customPromise;
 }
 
-   app.use(cors());
-   app.use(bodyParser.json());
+app.use(cors());
+app.use(bodyParser.json());
 
 
-   app.post('/register', (req, res) => {
-    const { firstName,email, password,role } = req.body;
+app.post('/register', (req, res) => {
+  const { firstName, email, password, role } = req.body;
 
   console.log(req.body);
-    // Insert the user data into the database
-    const query = 'INSERT INTO users (firstName,  email, password, role) VALUES (?, ?, ?,?)';
-    connection.query(query, [firstName,  email, password,  role], (err, results) => {
-      if (err) {
-        console.error('Error inserting user into the database:', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-      } else {
-        console.log('User registered successfully');
-        res.status(201).json({ message: 'User registered successfully' });
-      }
-    });
+  // Insert the user data into the database
+  const query = 'INSERT INTO users (firstName,  email, password, role) VALUES (?, ?, ?,?)';
+  connection.query(query, [firstName, email, password, role], (err, results) => {
+    if (err) {
+      console.error('Error inserting user into the database:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    } else {
+      console.log('User registered successfully');
+      res.status(201).json({ message: 'User registered successfully' });
+    }
   });
+});
 
 
 
@@ -103,7 +101,7 @@ connection.connect(function(err) {
 
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
-console.log(email, password);
+  console.log(email, password);
   // Replace 'your_query_here' with your actual query to authenticate the user
   const query = `SELECT * FROM users WHERE email = ? AND password = ?`;
   connection.query(query, [email, password], (err, results) => {
@@ -116,7 +114,9 @@ console.log(email, password);
       // Assuming you have a 'role' column in your users table
       const userRole = results[0].role;
       const userstatus = results[0].loginstatus;
-      res.json({ role: userRole ,loginstatus:userstatus});
+      const userEmail = results[0].email;
+
+      res.json({ role: userRole, loginstatus: userstatus, email: userEmail },);
     } else {
       res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -124,35 +124,15 @@ console.log(email, password);
 });
 
 
-  app.post('/publish', (req, res) => {
-    if (client) {
-      const messageToPublish = "start"; // Replace with the message you want to publish
-      client.publish(topic, messageToPublish, () => {
-        const responseMessage = ` ${messageToPublish}`;
-        console.log(responseMessage);
-        // ending data to the frontend
-        const responseData = {
-          topic: topic,
-          message: messageToPublish,
-          response: responseMessage
-        };
-  
-        res.status(200).json(responseData);
-      });
-    } else {
-      res.status(400).send('Not subscribed to MQTT topic');
-    }
-  });
-  
-//
+
 
 app.put('/approveuser/:email', (req, res) => {
 
- 
-  const { email } = req.params;
-  
 
- // Build the SQL query to update the data
+  const { email } = req.params;
+
+
+  // Build the SQL query to update the data
   const query = 'UPDATE users SET loginstatus=? WHERE email = ?';
 
   // Execute the query with the updated data and ID
@@ -170,7 +150,7 @@ app.put('/approveuser/:email', (req, res) => {
 
 
 app.get('/userdata', (req, res) => {
-    
+
 
   const query = 'SELECT * FROM users WHERE role = 3 AND loginstatus = 0;';
   connection.query(query, (error, results) => {
@@ -183,70 +163,36 @@ app.get('/userdata', (req, res) => {
   });
 });
 
-app.get('/addtime', (req, res) => {
-    
 
-  const query = 'SELECT * FROM users WHERE role = 3 AND loginstatus = 1;';
-  connection.query(query, (error, results) => {
-    if (error) {
-      console.error('Error executing MySQL query:', error);
-      res.status(500).json({ error: 'Error retrieving data from the database' });
+
+
+
+
+app.post('/Addproduce', (req, res) => {
+  console.log();
+  const { productid, productName, quantity, price, url, des } = req.body;
+
+  console.log(req.body);
+  // Insert the user data into the database
+  const query = 'INSERT INTO product (productId,productName,quantity, price,url ,des) VALUES (?, ?, ?,?,?,?)';
+  connection.query(query, [productid, productName, quantity, price, url, des], (err, results) => {
+    if (err) {
+      console.error('Error inserting user into the database:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
     } else {
-      res.json(results);
+      console.log('User registered successfully');
+      res.status(201).json({ message: 'Product Added Sucessfully' });
     }
   });
 });
 
 
 
-///app.put('/updateTimes', (req, res) => {
-  app.put('/updateTimes', (req, res) => {
-    const { email, startTime, endTime } = req.body;
-  console.log(req.body);
-    // Check if all required data is provided
-   
-      // Update the times in the MySQL database
-      const query = 'UPDATE users SET startTime = ?, endTime = ? WHERE email = ?';
-      connection.query(query, [startTime, endTime, email], (err, result) => {
-        if (err) {
-          console.error('Error updating record in MySQL:', err);
-          res.status(500).json({ error: 'Internal Server Error' });
-        } else {
-          console.log('Record updated in MySQL');
-          res.status(200).json({ message: 'Record successfully updated' });
-        }
-      });
-   
-  });
 
 
 
-
-  app.post('/Addproduce', (req, res) => {
-    console.log();
-    const { productName,quantity, price,url ,des} = req.body;
-
-  console.log(req.body);
-    // Insert the user data into the database
-    const query = 'INSERT INTO product (productName,quantity, price,url ,des) VALUES (?, ?, ?,?,?)';
-    connection.query(query, [productName,quantity, price,url ,des], (err, results) => {
-      if (err) {
-        console.error('Error inserting user into the database:', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-      } else {
-        console.log('User registered successfully');
-        res.status(201).json({ message: 'Product Added Sucessfully' });
-      }
-    });
-  });
-
-
-
-
-
-  
 app.get('/viewProduct', (req, res) => {
-    
+
 
   const query = 'SELECT * FROM product ';
   connection.query(query, (error, results) => {
@@ -260,7 +206,215 @@ app.get('/viewProduct', (req, res) => {
 });
 
 
+app.get('/ProductDetails/:email', (req, res) => {
 
-  app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-  })    
+
+  const { email } = req.params;
+  const currentUser = req.params.email;
+
+  const query1 = `SELECT * FROM users where email='${currentUser}'`;
+  connection.query(query1, (error, results) => {
+
+    const firstName = results.length > 0 ? results[0].firstName : null;
+    const userName = (firstName);
+
+    const query = `SELECT * FROM orders1 where person='${userName}'`;
+    connection.query(query, (error, results) => {
+      if (error) {
+        console.error('Error executing MySQL query:', error);
+        res.status(500).json({ error: 'Error retrieving data from the database' });
+      } else {
+        res.json(results);
+      }
+    });
+  });
+
+
+
+});
+
+
+app.get('/minimumStock', (req, res) => {
+  const query = 'SELECT productName, quantity FROM product WHERE quantity < 10';
+  connection.query(query, (error, results) => {
+    if (error) {
+      console.error('Error executing MySQL query:', error);
+      res.status(500).json({ error: 'Error retrieving data from the database' });
+    } else {
+      res.json(results);
+
+    }
+  });
+});
+
+//// post data in mysql table
+app.post('/purchase', (req, res) => {
+  const purchase = req.body;
+
+  connection.query('INSERT INTO purchasedetails SET ?', purchase, (error, results, fields) => {
+    if (error) {
+      console.error('Error storing purchase details: ' + error);
+      res.status(500).json({ error: 'Error storing purchase details' });
+      return;
+    }
+    console.log('Purchase details added successfully');
+    res.json({ message: 'Purchase details added successfully', data: purchase });
+  });
+});
+
+
+
+client.on('message', (purchasedettails, payload) => {
+  console.log('Received Message:', purchasedettails, payload.toString());
+
+  try {
+    const parsedData = JSON.parse(payload.toString());
+console.log(parsedData);
+    // Check if parsedData is an object
+    // if (typeof parsedData !== 'object') {
+    //   throw new Error('Invalid JSON data: Parsed data is not an object');
+    // }
+
+    // Assuming parsedData is an object with purchase details
+    const { person, products, total_amount } = parsedData;
+    const rewardsPoint = parsedData.total_amount * 0.10
+    console.log(rewardsPoint);
+
+    // Check if required fields are present
+    if (!person || !Array.isArray(products) || !total_amount) {
+      throw new Error('Invalid JSON data: Required fields are missing');
+    }
+
+    const insertQuery = 'INSERT INTO orders1 (person, product, qty, amount, total_amount,rewards_Amount ) VALUES (?, ?, ?, ?, ? ,?)';
+
+    // Insert each product into the database
+    products.forEach(product => {
+      const values = [person, product.name, product.qty, product.amount, total_amount, rewardsPoint];
+
+      // Insert product details into the database
+      connection.query(insertQuery, values, (insertError, insertResults) => {
+        if (insertError) {
+          console.error('Error inserting purchase details into database:', insertError);
+          return;
+        }
+        console.log('Data updated in MySQL table successfully');
+      });
+    });
+
+    products.forEach(product => {
+      const { name, qty } = product;
+
+      // Select the product from the database
+      const selectQuery = `SELECT * FROM product WHERE productName = '${name}'`;
+      connection.query(selectQuery, (error, results) => {
+        if (error) {
+          console.error('Error selecting product from database:', error);
+          return;
+        }
+
+        // Check if the product exists in the database
+        if (results.length === 0) {
+          console.error(`Product '${name}' not found in the database`);
+          return;
+        }
+
+        const productName = results[0].productName;
+        const currentQty = results[0].quantity;
+        const updatedQty = currentQty - qty; // Subtract purchased quantity from current quantity
+
+        // Update the quantity of the product in the database
+        const updateQuery = 'UPDATE product SET quantity = ? WHERE productName = ?';
+        connection.query(updateQuery, [updatedQty, productName], (updateError, updateResults) => {
+          if (updateError) {
+            console.error('Error updating product quantity:', updateError);
+            return;
+          }
+          console.log(`Quantity updated for ${productName}`);
+        });
+      });
+    });
+  } catch (error) {
+    console.error(error.message);
+  }
+});
+
+
+
+
+////add rewards
+
+
+app.post('/rewardadd', (req, res) => {
+  console.log(req.body);
+  const { companyName, description, rewardAmount, totalReward, imageUrl } = req.body;
+
+  // Check if all fields are present
+  if (!companyName || !description || !rewardAmount || !totalReward || !imageUrl) {
+    return res.status(400).json({ error: 'Please fill in all fields before submitting.' });
+  }
+
+  // Insert data into MySQL database
+  connection.query('INSERT INTO rewards (companyName, description, rewardAmount, totalReward, imageUrl) VALUES (?, ?, ?, ?, ?)',
+    [companyName, description, rewardAmount, totalReward, imageUrl],
+    (error, results) => {
+      if (error) {
+        console.error('Error inserting data into database:', error);
+        return res.status(500).json({ error: 'Failed to submit form data.' });
+      }
+      res.status(200).json({ message: 'Form data submitted successfully' });
+    });
+});
+
+
+
+app.get('/getrewardsdetails', (req, res) => {
+  const query = 'SELECT *FROM rewards ';
+  connection.query(query, (error, results) => {
+    if (error) {
+      console.error('Error executing MySQL query:', error);
+      res.status(500).json({ error: 'Error retrieving data from the database' });
+    } else {
+      res.json(results);
+
+    }
+  });
+});
+
+
+
+
+app.get('/totalrewardAmount', (req, res) => {
+
+  const query = `
+    SELECT 
+    
+      SUM(rewards_Amount) AS total_Rewards
+    FROM 
+      orders1
+    GROUP BY 
+      rewards_Amount;
+  `;
+  
+  connection.query(query, (error, results) => {
+    if (error) {
+      console.error('Error executing MySQL query:', error);
+      res.status(500).json({ error: 'Error retrieving data from the database' });
+    } else {
+      res.json(results);
+    }
+  });
+});
+
+
+
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`)
+})
+
+
+
+
+
+
+
+// {"person":"John","total_amount":82,"products":[{"name":"brush","qty":1,"amount":22},{"name":"paste","qty":1,"amount":10},{"name":"chips","qty":1,"amount":20},{"name":"biscuit","qty":1,"amount":30}]}

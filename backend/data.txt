@@ -1,0 +1,84 @@
+{"person":"test2","p3":"chips","p3_count":1,"p1":"brush","p1_count":2,"p2":"paste","p2_count":3,"total_amount":124,"p4":"biscuit","p4_count":1}
+
+
+
+
+
+
+
+
+
+
+client.on('message', (purchasedettails, payload) => {
+  console.log('Received Message:', purchasedettails, payload.toString());
+
+  try {
+    const parsedData = JSON.parse(payload.toString());
+
+    // Check if parsedData is an object
+    if (typeof parsedData !== 'object') {
+      throw new Error('Invalid JSON data: Parsed data is not an object');
+    }
+
+    // Assuming parsedData is an object with purchase details
+    const { person, products, total_amount } = parsedData;
+    const rewardsPoint = parsedData.total_amount * 0.10
+    console.log(rewardsPoint);
+
+    // Check if required fields are present
+    if (!person || !Array.isArray(products) || !total_amount) {
+      throw new Error('Invalid JSON data: Required fields are missing');
+    }
+
+    const insertQuery = 'INSERT INTO orders1 (person, product, qty, amount, total_amount,rewards_Amount ) VALUES (?, ?, ?, ?, ? ,?)';
+
+    // Insert each product into the database
+    products.forEach(product => {
+      const values = [person, product.name, product.qty, product.amount, total_amount, rewardsPoint];
+
+      // Insert product details into the database
+      connection.query(insertQuery, values, (insertError, insertResults) => {
+        if (insertError) {
+          console.error('Error inserting purchase details into database:', insertError);
+          return;
+        }
+        console.log('Data updated in MySQL table successfully');
+      });
+    });
+
+    products.forEach(product => {
+      const { name, qty } = product;
+
+      // Select the product from the database
+      const selectQuery = `SELECT * FROM product WHERE productName = '${name}'`;
+      connection.query(selectQuery, (error, results) => {
+        if (error) {
+          console.error('Error selecting product from database:', error);
+          return;
+        }
+
+        // Check if the product exists in the database
+        if (results.length === 0) {
+          console.error(`Product '${name}' not found in the database`);
+          return;
+        }
+
+        const productName = results[0].productName;
+        const currentQty = results[0].quantity;
+        const updatedQty = currentQty - qty; // Subtract purchased quantity from current quantity
+
+        // Update the quantity of the product in the database
+        const updateQuery = 'UPDATE product SET quantity = ? WHERE productName = ?';
+        connection.query(updateQuery, [updatedQty, productName], (updateError, updateResults) => {
+          if (updateError) {
+            console.error('Error updating product quantity:', updateError);
+            return;
+          }
+          console.log(`Quantity updated for ${productName}`);
+        });
+      });
+    });
+  } catch (error) {
+    console.error(error.message);
+  }
+});
