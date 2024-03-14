@@ -269,37 +269,73 @@ client.on('message', (purchasedettails, payload) => {
 
   try {
     const parsedData = JSON.parse(payload.toString());
-console.log(parsedData);
-    // Check if parsedData is an object
-    // if (typeof parsedData !== 'object') {
-    //   throw new Error('Invalid JSON data: Parsed data is not an object');
-    // }
 
-    // Assuming parsedData is an object with purchase details
-    const { person, products, total_amount } = parsedData;
-    const rewardsPoint = parsedData.total_amount * 0.10
-    console.log(rewardsPoint);
+    //Check if parsedData is an object
+    if (typeof parsedData !== 'object') {
+      throw new Error('Invalid JSON data: Parsed data is not an object');
+    }
+    const formattedData = {
+      person: parsedData.person,
+      total_amount: parsedData.total_amount,
+      products: parsedData.products.map(product => {
+        const totalAmount = product.qty * product.amount;
+        const rewardsPoints = totalAmount * 0.10;
+     
+        return {
+          ...product,
+          totalAmount,
+          rewardsPoints
+        };
+      })
+    };
+    const totalRewardsPoints = formattedData.products.reduce((total, product) => {
+      return total + product.rewardsPoints;
+    }, 0);
+    
+ 
+   // Assuming parsedData is an object with purchase details
+   const { person, products, total_amount, totalAmount, rewardsPoints } = formattedData;
+
+    // const rewardsPoint = parsedData.total_amount * 0.10
 
     // Check if required fields are present
     if (!person || !Array.isArray(products) || !total_amount) {
       throw new Error('Invalid JSON data: Required fields are missing');
     }
 
-    const insertQuery = 'INSERT INTO orders1 (person, product, qty, amount, total_amount,rewards_Amount ) VALUES (?, ?, ?, ?, ? ,?)';
+    const insertQuery = 'INSERT INTO orders1 (person, product, qty, price, total, total_amount, rewards_amount) VALUES (?, ?, ?, ?, ?, ?, ?)';
 
-    // Insert each product into the database
-    products.forEach(product => {
-      const values = [person, product.name, product.qty, product.amount, total_amount, rewardsPoint];
+// Iterate over each product and insert its details into the database
+products.forEach(product => {
+  const values = [person, product.name, product.qty, product.amount, product.totalAmount, total_amount, product.rewardsPoints];
 
-      // Insert product details into the database
-      connection.query(insertQuery, values, (insertError, insertResults) => {
-        if (insertError) {
-          console.error('Error inserting purchase details into database:', insertError);
-          return;
-        }
-        console.log('Data updated in MySQL table successfully');
+  // Insert product details into the database
+  connection.query(insertQuery, values, (insertError, insertResults) => {
+
+    const query2 = `SELECT * FROM orders1 where person='${person}'`;
+    connection.query(query2, (error, results2) => {
+
+   
+      const query = `SELECT SUM(rewards_Amount) AS total_value
+      FROM orders1
+      WHERE person = '${person}';
+      `;
+      connection.query(query, (error, results3) => {
+       const updatedQty= (results3[0].total_value);
+ // res.json(updatedQty);
+        const updateQuery = 'UPDATE orders1 SET rewards_Total = ? WHERE person = ?';
+        connection.query(updateQuery, [updatedQty, person], (updateError, updateResults) => {
+          if (updateError) {
+            console.error('Error updating product quantity:', updateError);
+            return;
+          }
+         
+        });
       });
     });
+
+  });
+});
 
     products.forEach(product => {
       const { name, qty } = product;
@@ -366,16 +402,58 @@ app.post('/rewardadd', (req, res) => {
 });
 
 
+///total Rewards in user 
+
+app.get('/getrewards/:email', (req, res) => {
+console.log(req.params);
+  const { email } = req.params;
+  const currentUser = req.params.email;
+
+  const query1 = `SELECT * FROM users where email='${currentUser}'`;
+  connection.query(query1, (error, results) => {
+
+    const firstName = results.length > 0 ? results[0].firstName : null;
+    const userName = (firstName);
+
+    const query2 = `SELECT * FROM orders1 where person='${userName}'`;
+    connection.query(query2, (error, results2) => {
+
+   
+      const query = `SELECT rewards_Total
+               FROM orders1
+               WHERE person = '${userName}' 
+               ORDER BY created_at ASC
+               LIMIT 1;
+              `;
+
+      connection.query(query, (error, results3) => {
+
+  //  const updatedQty=(results3[0].rewards_Total);
+     
+      //  console.log(rewardsPoint);
+         res.json(results3);
+         console.log(results3);
+    
+        });
+      });
+    });
+  });
+
+  
+
+
+
+
 
 app.get('/getrewardsdetails', (req, res) => {
-  const query = 'SELECT *FROM rewards ';
+
+  const query = `SELECT * FROM rewards `;
   connection.query(query, (error, results) => {
     if (error) {
       console.error('Error executing MySQL query:', error);
       res.status(500).json({ error: 'Error retrieving data from the database' });
     } else {
       res.json(results);
-
     }
   });
 });
@@ -383,28 +461,99 @@ app.get('/getrewardsdetails', (req, res) => {
 
 
 
-app.get('/totalrewardAmount', (req, res) => {
 
-  const query = `
-    SELECT 
-    
-      SUM(rewards_Amount) AS total_Rewards
-    FROM 
-      orders1
-    GROUP BY 
-      rewards_Amount;
-  `;
+
+app.get('/getrewardsTotal/:email', (req, res) => {
   
-  connection.query(query, (error, results) => {
-    if (error) {
-      console.error('Error executing MySQL query:', error);
-      res.status(500).json({ error: 'Error retrieving data from the database' });
-    } else {
-      res.json(results);
-    }
-  });
-});
+    const { email } = req.params;
+    const currentUser = req.params.email;
+  
+    const query1 = `SELECT * FROM users where email='${currentUser}'`;
+    connection.query(query1, (error, results) => {
+  
+      const firstName = results.length > 0 ? results[0].firstName : null;
+      const userName = (firstName);
 
+        const query = `SELECT SUM(rewards_Amount) AS total_value
+        FROM orders1
+        WHERE person = '${userName}';
+        `;
+        connection.query(query, (error, results3) => {
+
+          const updatedQty= (results3[0].total_value);
+          
+          if (error) {
+            console.error('Error executing MySQL query:', error);
+            res.status(500).json({ error: 'Error retrieving data from the database' });
+          } else {
+            res.json(updatedQty);
+          }
+         
+       
+          
+           
+        });
+      });
+    });
+  
+    
+
+  
+///claim rewards
+
+
+app.post('/claimreward', async (req, res) => {
+
+
+  
+  try {
+    const { rewardAmount, totalReward, currentUser } = req.body;
+
+    
+    const query1 = `SELECT * FROM users where email='${currentUser}'`;
+    connection.query(query1, (error, results) => {
+  
+      const firstName = results.length > 0 ? results[0].firstName : null;
+      const userName = (firstName);
+      console.log(userName);
+    
+      const query = `SELECT rewards_Total
+               FROM orders1
+               WHERE person = '${userName}' 
+               ORDER BY rewards_Total ASC
+               LIMIT 1;
+              `;
+      connection.query(query, (error, results3) => {
+
+         const updateRewards= (results3[0].rewards_Total);
+      
+         
+       const BuyRewards= (updateRewards-rewardAmount);
+ 
+       
+
+      const updateQuery = 'UPDATE orders1 SET rewards_Total = ? WHERE person = ?';
+      connection.query(updateQuery, [BuyRewards, userName], (updateError, updateResults) => {
+        if (updateError) {
+          console.error('Error updating product quantity:', updateError);
+          return;
+        }
+        res.json(updateResults);
+      });
+        
+         
+      });
+
+
+    })
+     
+
+  } 
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 
 
 app.listen(port, () => {
