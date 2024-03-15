@@ -81,7 +81,7 @@ app.use(bodyParser.json());
 app.post('/register', (req, res) => {
   const { firstName, email, password, role } = req.body;
 
-  console.log(req.body);
+
   // Insert the user data into the database
   const query = 'INSERT INTO users (firstName,  email, password, role) VALUES (?, ?, ?,?)';
   connection.query(query, [firstName, email, password, role], (err, results) => {
@@ -101,7 +101,8 @@ app.post('/register', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
-  console.log(email, password);
+
+  
   // Replace 'your_query_here' with your actual query to authenticate the user
   const query = `SELECT * FROM users WHERE email = ? AND password = ?`;
   connection.query(query, [email, password], (err, results) => {
@@ -169,10 +170,11 @@ app.get('/userdata', (req, res) => {
 
 
 app.post('/Addproduce', (req, res) => {
-  console.log();
+
   const { productid, productName, quantity, price, url, des } = req.body;
 
-  console.log(req.body);
+ 
+  
   // Insert the user data into the database
   const query = 'INSERT INTO product (productId,productName,quantity, price,url ,des) VALUES (?, ?, ?,?,?,?)';
   connection.query(query, [productid, productName, quantity, price, url, des], (err, results) => {
@@ -381,7 +383,8 @@ products.forEach(product => {
 
 
 app.post('/rewardadd', (req, res) => {
-  console.log(req.body);
+
+  
   const { companyName, description, rewardAmount, totalReward, imageUrl } = req.body;
 
   // Check if all fields are present
@@ -405,7 +408,8 @@ app.post('/rewardadd', (req, res) => {
 ///total Rewards in user 
 
 app.get('/getrewards/:email', (req, res) => {
-console.log(req.params);
+
+  
   const { email } = req.params;
   const currentUser = req.params.email;
 
@@ -432,7 +436,8 @@ console.log(req.params);
      
       //  console.log(rewardsPoint);
          res.json(results3);
-         console.log(results3);
+       
+         
     
         });
       });
@@ -515,7 +520,8 @@ app.post('/claimreward', async (req, res) => {
   
       const firstName = results.length > 0 ? results[0].firstName : null;
       const userName = (firstName);
-      console.log(userName);
+   
+      
     
       const query = `SELECT rewards_Total
                FROM orders1
