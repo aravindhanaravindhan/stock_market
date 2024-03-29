@@ -6,7 +6,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
-
+import '../Admin/admin.css';
 import axios from "axios";
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -129,27 +129,36 @@ const generatePDF = () => {
 
   return (
     <>
-    <div>
-   
-      <label>Start Date: </label>
+  <div className="form-container">
+      <label className="form-label">Start Date: </label>
       <input
-  type="date"
-  value={startDate ? startDate.toISOString().substring(0, 10) : ''}
-  onChange={e => setStartDate(new Date(e.target.value))}
-/>
+        type="date"
+        className="form-input"
+        value={startDate ? startDate.toISOString().substring(0, 10) : ''}
+        onChange={e => setStartDate(new Date(e.target.value))}
+      />
 
-      <label>End Date: </label>
+      <label className="form-label">End Date: </label>
       <input
-  type="date"
-  value={endDate ? endDate.toISOString().substring(0, 10) : ''}
-  onChange={e => setEndDate(new Date(e.target.value))}
-/>
+        type="date"
+        className="form-input"
+        value={endDate ? endDate.toISOString().substring(0, 10) : ''}
+        onChange={e => setEndDate(new Date(e.target.value))}
+      />
 
-      <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-      <button onClick={handleClearFilters}>Clear Filters</button>
-      <Button onClick={generatePDF} variant="outlined" >Generate PDF</Button>
+      <input
+        type="text"
+        className="search-input"
+        placeholder="Search..."
+        value={searchQuery}
+        onChange={e => setSearchQuery(e.target.value)}
+      />
+      
+      <button className="form-button" onClick={handleClearFilters}>
+        Clear Filters
+      </button>
     </div>
-   
+     {/* <Button onClick={generatePDF} variant="outlined" >Generate PDF</Button> */}
 <TableContainer component={Paper}>
   <Table sx={{ minWidth: 700 }} aria-label="spanning table">
     <TableHead>

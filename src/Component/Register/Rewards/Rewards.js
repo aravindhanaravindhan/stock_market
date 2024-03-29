@@ -19,7 +19,7 @@ import TextField from '@mui/material/TextField';
 
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { ToastContainer, toast } from 'react-toastify';
- import '../Admin/admin.css'
+ import '../Admin/admin.css';
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
